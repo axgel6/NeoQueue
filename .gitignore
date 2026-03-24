@@ -1,0 +1,41 @@
+# --- General / OS ---
+.DS_Store
+Thumbs.db
+*.log
+.env
+.env.local
+.env.*.local
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.venv/
+env/
+.pytest_cache/
+.coverage
+htmlcov/
+dist/
+build/
+*.egg-info/
+
+# --- React / TypeScript / Node ---
+node_modules/
+/build
+/dist
+/out
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.eslintcache
+.stylelintcache
+*.tsbuildinfo
+
+.docker/
+
+# --- IDEs ---
+.vscode/
+.idea/
+*.swp
+*.swo

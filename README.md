@@ -13,7 +13,7 @@ POST /api/jobs
   PostgreSQL          ← persists job as "pending"
       │
       ▼
-    Redis             ← pushes job ID to priority queue
+    Redis             ← pushes job ID to the priority queue
   (high/normal/low)
       │
       ▼
@@ -152,13 +152,13 @@ See [.env.example](.env.example) for all options.
 
 ## Roadmap
 
-| Phase | Description | Status |
-| :---- | :---------- | :----- |
-| 1 — Foundation | PostgreSQL + Redis + FastAPI services, Job model, Docker Compose | Done |
-| 2 — Ingestion Layer | `POST /api/jobs`, `GET /api/jobs/{id}`, Pydantic validation, Redis enqueue | Done |
-| 3 — Execution Layer | Worker BLPOP loop, idempotency check, status transitions, heartbeat | Next |
-| 4 — Fault Tolerance | Watchdog process, stuck-job detection, auto-retry, dead-letter queue | Planned |
-| 5 — Observability API | Queue stats endpoint, SSE live status streaming | Planned |
-| 6 — Dashboard | React + TypeScript UI, live queue metrics, per-job SSE view | Planned |
-| 7 — Testing | Unit tests, integration tests, horizontal scaling validation | Planned |
-| 8 — Polish | Final README, single-command deploy, resume alignment | Planned |
+| Phase                 | Description                                                                | Status  |
+| :-------------------- | :------------------------------------------------------------------------- | :------ |
+| 1 — Foundation        | PostgreSQL + Redis + FastAPI services, Job model, Docker Compose           | Done    |
+| 2 — Ingestion Layer   | `POST /api/jobs`, `GET /api/jobs/{id}`, Pydantic validation, Redis enqueue | Done    |
+| 3 — Execution Layer   | Worker BLPOP loop, idempotency check, status transitions, heartbeat        | Next    |
+| 4 — Fault Tolerance   | Watchdog process, stuck-job detection, auto-retry, dead-letter queue       | Planned |
+| 5 — Observability API | Queue stats endpoint, SSE live status streaming                            | Planned |
+| 6 — Dashboard         | React + TypeScript UI, live queue metrics, per-job SSE view                | Planned |
+| 7 — Testing           | Unit tests, integration tests, horizontal scaling validation               | Planned |
+| 8 — Polish            | Final README, single-command deploy, resume alignment                      | Planned |

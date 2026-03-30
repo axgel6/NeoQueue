@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models import Job
 from app.schemas import JobCreate, JobResponse
-from app.redis_client import get_redis, queue_key
+from app.redis_client import get_redis, queue_key, PRIORITY_QUEUES
 
 router = APIRouter()
 
@@ -44,11 +44,7 @@ def queue_stats(db: Session = Depends(get_db)):
     r = get_redis()
     return {
         # Number of job IDs currently waiting in each Redis priority queue
-        "queues": {
-            "high":   r.llen("job_queue:high"),
-            "normal": r.llen("job_queue:normal"),
-            "low":    r.llen("job_queue:low"),
-        },
+        "queues": {name: r.llen(key) for name, key in PRIORITY_QUEUES.items()},
         # Counts of jobs grouped by their current status in the database
         "jobs": {
             "pending":    db.query(Job).filter_by(status="pending").count(),

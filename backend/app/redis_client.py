@@ -16,11 +16,18 @@ def get_redis() -> redis.Redis:
         _client = redis.Redis.from_url(redis_url)
     return _client
 
-# Maps a numeric priority (1–10) to a Redis queue key
+# Canonical queue names; used by both the API and worker
+PRIORITY_QUEUES = {
+    "high":   "job_queue:high",
+    "normal": "job_queue:normal",
+    "low":    "job_queue:low",
+}
+
+# Maps a numeric priority (1-10) to a Redis queue key
 # 1–3 -> high, 4–6 -> normal, 7–10 -> low
 def queue_key(priority: int) -> str:
     if priority <= 3:
-        return "job_queue:high"
+        return PRIORITY_QUEUES["high"]
     if priority <= 6:
-        return "job_queue:normal"
-    return "job_queue:low"
+        return PRIORITY_QUEUES["normal"]
+    return PRIORITY_QUEUES["low"]

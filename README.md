@@ -150,15 +150,163 @@ See [.env.example](.env.example) for all options.
 
 ---
 
+## End-to-End Test Guide
+
+A structured five-phase test that exercises the full stack from container startup through fault recovery and live streaming.
+
+### Phase 1 — Stack Verification
+
+```bash
+# Build images and start all services in the background
+docker compose up --build -d
+
+# Confirm the 'jobs' table was created by SQLAlchemy on startup
+docker exec -it neoqueue_postgres psql -U neoqueue -d neoqueue -c "\dt"
+
+# Inspect all expected columns (id, status, priority, worker_id, etc.)
+docker exec -it neoqueue_postgres psql -U neoqueue -d neoqueue -c "\d jobs"
+
+# Confirm FastAPI is reachable and healthy
+curl http://localhost:8000/health
+```
+
+`\dt` lists all tables in the current database. `\d jobs` describes the column definitions, types, indexes, and constraints on the `jobs` table. The health endpoint returns `{"status": "ok"}` when the app has started and connected to the database.
+
+---
+
+### Phase 2 — Job Ingestion
+
+```bash
+# Submit a high-priority email job (priority 1 routes to job_queue:high)
+curl -X POST http://localhost:8000/api/jobs \
+  -H "Content-Type: application/json" \
+  -d '{"job_type": "send_email", "payload": {"to": "test@example.com", "subject": "Hello"}, "priority": 1, "max_retries": 3}'
+
+# Confirm the job row exists in PostgreSQL — note the returned 'id'
+docker exec -it neoqueue_postgres psql -U neoqueue -d neoqueue \
+  -c "SELECT id, status, priority FROM jobs WHERE id = '<job_id>';"
+
+# Confirm the job ID was pushed to the Redis high-priority list
+# LRANGE returns all elements from index 0 to -1 (the full list)
+docker exec -it neoqueue_redis redis-cli LRANGE job_queue:high 0 -1
+
+# Fetch the job over the API to confirm the response schema
+curl http://localhost:8000/api/jobs/<job_id>
+```
+
+The API persists the job to PostgreSQL first (so it has an ID), then pushes the ID onto the appropriate Redis list. Workers pop from the right side; the API pushes to the left (`LPUSH`), so the list is FIFO within a priority tier.
+
+---
+
+### Phase 3 — Worker Execution
+
+```bash
+# Scale up to 3 concurrent workers and stream their combined logs
+docker compose up --scale worker=3 -d
+docker compose logs -f worker
+
+# Submit a job and watch it transition through states
+curl -X POST http://localhost:8000/api/jobs \
+  -H "Content-Type: application/json" \
+  -d '{"job_type": "send_email", "payload": {"to": "test@example.com", "subject": "Hello"}, "priority": 1, "max_retries": 3}'
+
+# Poll PostgreSQL to see pending → processing → completed
+docker exec -it neoqueue_postgres psql -U neoqueue -d neoqueue \
+  -c "SELECT id, status, started_at, completed_at, worker_id FROM jobs ORDER BY created_at DESC LIMIT 5;"
+
+# Confirm each running worker has written a TTL heartbeat key to Redis
+docker exec -it neoqueue_redis redis-cli KEYS "heartbeat:*"
+```
+
+Each worker runs a background thread that writes `heartbeat:<worker-id>` to Redis every 10 seconds with a 30-second TTL. If a worker dies, its key expires naturally. `KEYS "heartbeat:*"` returns one key per live worker — the same count exposed by `/api/queue/stats` under `workers_alive`.
+
+---
+
+### Phase 4 — Fault Recovery
+
+```bash
+# Submit a long-running job (resize_image simulates 2s of work)
+curl -X POST http://localhost:8000/api/jobs \
+  -H "Content-Type: application/json" \
+  -d '{"job_type": "resize_image", "payload": {"image_url": "http://example.com/img.jpg", "width": 800, "height": 600}, "priority": 2, "max_retries": 3}'
+
+# Find which worker picked it up
+docker exec -it neoqueue_postgres psql -U neoqueue -d neoqueue \
+  -c "SELECT id, status, worker_id, started_at FROM jobs ORDER BY created_at DESC LIMIT 1;"
+
+# Kill all workers to simulate a crash mid-execution
+docker compose kill worker
+
+# Watch the watchdog detect the stuck job
+docker compose logs -f watchdog
+
+# Confirm the job was requeued (status='pending', retry_count=1) or marked dead
+docker exec -it neoqueue_postgres psql -U neoqueue -d neoqueue \
+  -c "SELECT id, status, retry_count, error_msg FROM jobs ORDER BY created_at DESC LIMIT 1;"
+```
+
+The watchdog scans PostgreSQL every `WATCHDOG_POLL_INTERVAL` seconds for jobs stuck in `processing` longer than `WORKER_JOB_TIMEOUT` seconds. Before requeueing, it checks whether the assigned worker's heartbeat key still exists in Redis. If the key is gone, the job is requeued to `job_queue:normal` with `retry_count + 1`. Once `retry_count` exceeds `max_retries`, the job is marked `dead`. To make this test run faster, override the defaults:
+
+```bash
+WATCHDOG_POLL_INTERVAL=15 WORKER_JOB_TIMEOUT=20 docker compose up -d watchdog
+```
+
+---
+
+### Phase 5 — Observability
+
+```bash
+# Get a snapshot of queue depths and job counts by status
+curl http://localhost:8000/api/queue/stats
+```
+
+Returns:
+
+```json
+{
+  "queues": { "high": 0, "normal": 0, "low": 0 },
+  "jobs": {
+    "pending": 0,
+    "processing": 0,
+    "completed": 4,
+    "failed": 0,
+    "dead": 0
+  },
+  "workers_alive": 3
+}
+```
+
+```bash
+# Submit a job, then open an SSE stream on it in a second terminal
+curl -X POST http://localhost:8000/api/jobs \
+  -H "Content-Type: application/json" \
+  -d '{"job_type": "send_email", "payload": {"to": "test@example.com", "subject": "Hello"}, "priority": 1, "max_retries": 3}'
+
+# -N disables output buffering so events arrive immediately as they are emitted
+curl -N http://localhost:8000/api/jobs/<job_id>/stream
+```
+
+The stream emits a `data:` line each time the job's status changes:
+
+```
+data: {"job_id": "...", "status": "processing", "started_at": "...", ...}
+
+data: {"job_id": "...", "status": "completed", "completed_at": "...", ...}
+```
+
+The connection closes automatically when the job reaches a terminal state (`completed`, `failed`, or `dead`). The server polls PostgreSQL every second and only emits an event when the status actually changes, so the stream is quiet when nothing has changed.
+
+---
+
 ## Roadmap
 
 | Phase                 | Description                                                                | Status  |
 | :-------------------- | :------------------------------------------------------------------------- | :------ |
 | 1 — Foundation        | PostgreSQL + Redis + FastAPI services, Job model, Docker Compose           | Done    |
 | 2 — Ingestion Layer   | `POST /api/jobs`, `GET /api/jobs/{id}`, Pydantic validation, Redis enqueue | Done    |
-| 3 — Execution Layer   | Worker BLPOP loop, idempotency check, status transitions, heartbeat        | Next    |
-| 4 — Fault Tolerance   | Watchdog process, stuck-job detection, auto-retry, dead-letter queue       | Planned |
-| 5 — Observability API | Queue stats endpoint, SSE live status streaming                            | Planned |
+| 3 — Execution Layer   | Worker BLPOP loop, idempotency check, status transitions, heartbeat        | Done    |
+| 4 — Fault Tolerance   | Watchdog process, stuck-job detection, auto-retry, dead-letter queue       | Done    |
+| 5 — Observability API | Queue stats endpoint, SSE live status streaming                            | Done    |
 | 6 — Dashboard         | React + TypeScript UI, live queue metrics, per-job SSE view                | Planned |
 | 7 — Testing           | Unit tests, integration tests, horizontal scaling validation               | Planned |
 | 8 — Polish            | Final README, single-command deploy, resume alignment                      | Planned |

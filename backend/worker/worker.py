@@ -118,8 +118,7 @@ def run_worker():
             if result is None:
                 continue
 
-            assert isinstance(result, list)
-            _, job_id = result
+            _, job_id = result  # type: ignore[misc]
             job_id = job_id.decode() if isinstance(job_id, bytes) else job_id
 
             session = SessionLocal()

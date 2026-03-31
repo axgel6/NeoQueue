@@ -1,8 +1,6 @@
 import os
 import uuid
 import time
-from typing import Optional, cast
-from uuid import UUID
 import logging
 import threading
 
@@ -11,36 +9,39 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from app.models import Job
+from app.redis_client import get_redis, PRIORITY_QUEUES
 
 # ----- Config -----
 
-REDIS_URL        = os.getenv("REDIS_URL", "redis://localhost:6379")
-DATABASE_URL     = os.environ["DATABASE_URL"]
-JOB_QUEUE_KEY    = "queue:jobs"
-HEARTBEAT_PREFIX = "heartbeat:"
-HEARTBEAT_TTL    = 30       # seconds before key expires
-HEARTBEAT_INTERVAL = 10     # seconds between writes
-MAX_BLOCK_TIMEOUT  = 5      # BLPOP timeout in seconds
+DATABASE_URL       = os.getenv("DATABASE_URL", "")
+HEARTBEAT_PREFIX   = "heartbeat:"
+HEARTBEAT_TTL      = 30                                                         # Seconds before key expires
+HEARTBEAT_INTERVAL = int(os.getenv("WORKER_HEARTBEAT_INTERVAL", 10))            # Seconds between writes
+MAX_BLOCK_TIMEOUT  = 5                                                          # BLPOP timeout in seconds
+
+QUEUE_KEYS = [
+    PRIORITY_QUEUES["high"],
+    PRIORITY_QUEUES["normal"],
+    PRIORITY_QUEUES["low"],
+]
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 log = logging.getLogger(__name__)
 
-# ----- DB + Redis -----
+# ----- DB Setup -----
 
 engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(bind=engine)
-
-r = redis.from_url(REDIS_URL, decode_responses=True)
 
 # ----- Job Handlers -----
 
 def handle_send_email(payload: dict):
     log.info(f"[send_email] Sending to {payload.get('to')} — subject: {payload.get('subject')}")
-    time.sleep(1)  # simulate work
+    time.sleep(1) # Simulate work
 
 def handle_resize_image(payload: dict):
     log.info(f"[resize_image] Resizing {payload.get('image_url')} to {payload.get('width')}x{payload.get('height')}")
-    time.sleep(2)  # simulate work
+    time.sleep(2) # Simulate work
 
 JOB_HANDLERS = {
     "send_email":   handle_send_email,
@@ -73,13 +74,13 @@ def mark_completed(session, job: Job):
 
 
 def handle_failure(session, job: Job, error: Exception):
-    job.retry_count = job.retry_count + 1
+    job.retry_count += 1
     job.error_msg    = str(error)
 
     if job.retry_count <= job.max_retries:
         job.status = "pending"
         session.commit()
-        r.rpush(JOB_QUEUE_KEY, str(job.id))
+        get_redis().rpush(PRIORITY_QUEUES["normal"], str(job.id))
         log.warning(f"[worker] Job {job.id} failed (attempt {job.retry_count}/{job.max_retries}), re-queued. Error: {error}")
     else:
         job.status = "dead"
@@ -88,9 +89,9 @@ def handle_failure(session, job: Job, error: Exception):
 
 # ----- Heartbeat -----
 
-
 def heartbeat_loop(worker_id: str):
     key = f"{HEARTBEAT_PREFIX}{worker_id}"
+    r   = get_redis()
     while True:
         try:
             r.set(key, "alive", ex=HEARTBEAT_TTL)
@@ -99,29 +100,31 @@ def heartbeat_loop(worker_id: str):
             log.warning(f"[heartbeat] Redis write failed: {e}")
         time.sleep(HEARTBEAT_INTERVAL)
 
-# ----- Main Worker Loop -----
+# ----- Worker Loop -----
 
 def run_worker():
     worker_id = str(uuid.uuid4())
     log.info(f"[worker] Starting — ID: {worker_id}")
 
-    # Start heartbeat in background thread
     hb_thread = threading.Thread(target=heartbeat_loop, args=(worker_id,), daemon=True)
     hb_thread.start()
 
+    r = get_redis()
+
     while True:
         try:
-            # Blocking pop — waits up to MAX_BLOCK_TIMEOUT seconds
-            result = cast(Optional[tuple[str, str]], r.blpop([JOB_QUEUE_KEY], timeout=MAX_BLOCK_TIMEOUT))
+            result = r.blpop(QUEUE_KEYS, timeout=MAX_BLOCK_TIMEOUT)
 
             if result is None:
-                continue  # timeout, loop again
+                continue
 
-            _, job_id = result  # blpop returns (key, value)
+            assert isinstance(result, list)
+            _, job_id = result
+            job_id = job_id.decode() if isinstance(job_id, bytes) else job_id
 
             session = SessionLocal()
             try:
-                job = session.get(Job, UUID(job_id))
+                job = session.query(Job).filter(Job.id == job_id).first()
 
                 if job is None:
                     log.warning(f"[worker] Job {job_id} not found in DB — skipping.")

@@ -16,11 +16,11 @@ class Job(Base):
         ),
     )
 
-    id:           Mapped[uuid.UUID]         = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)           # UUID PK
+    id:           Mapped[uuid.UUID]         = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)             # UUID PK
     job_type:     Mapped[str]               = mapped_column(String(64), nullable=False)                                           # Identifies the handler
     payload:      Mapped[dict[str, Any]]    = mapped_column(JSONB, nullable=False)                                                # Arbitrary job data
-    status:       Mapped[str]               = mapped_column(String(16), default="pending", index=True)                            # pending → processing → completed / failed → dead
-    priority:     Mapped[int]               = mapped_column(Integer, default=5, nullable=False)                                   # 1–3 = high queue, 4–6 = normal, 7–10 = low
+    status:       Mapped[str]               = mapped_column(String(16), default="pending", index=True)                            # pending -> processing -> completed / failed -> dead
+    priority:     Mapped[int]               = mapped_column(Integer, default=5, nullable=False)                                   # 1-3 = high queue, 4-6 = normal, 7-10 = low
     retry_count:  Mapped[int]               = mapped_column(Integer, default=0, nullable=False)                                   # Times retried so far
     max_retries:  Mapped[int]               = mapped_column(Integer, default=3, nullable=False)                                   # Retry cap
     created_at:   Mapped[datetime]          = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))  # Timestamp when job was created

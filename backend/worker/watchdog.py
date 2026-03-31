@@ -3,30 +3,26 @@ import time
 import logging
 from datetime import datetime, timezone, timedelta
 
-import redis
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from app.models import Job
+from app.redis_client import get_redis, PRIORITY_QUEUES
 
 # ----- Config -----
 
-REDIS_URL          = os.getenv("REDIS_URL", "redis://localhost:6379")
-DATABASE_URL       = os.environ["DATABASE_URL"]
-JOB_QUEUE_KEY      = "queue:jobs"
-HEARTBEAT_PREFIX   = "heartbeat:"
-POLL_INTERVAL      = 60    # seconds between watchdog scans
-JOB_TIMEOUT        = 300   # seconds before a "processing" job is considered stuck (5 min)
+DATABASE_URL     = os.getenv("DATABASE_URL", "")
+HEARTBEAT_PREFIX = "heartbeat:"
+POLL_INTERVAL    = int(os.getenv("WATCHDOG_POLL_INTERVAL", 60)) # Seconds between watchdog scans (1 minute)
+JOB_TIMEOUT      = int(os.getenv("WORKER_JOB_TIMEOUT", 300))    # Seconds before a "processing" job is considered stuck (5 minutes)
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 log = logging.getLogger(__name__)
 
-# ----- DB + Redis -----
+# ----- DB Setup -----
 
 engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(bind=engine)
-
-r = redis.from_url(REDIS_URL, decode_responses=True)
 
 # ----- Failure Handler -----
 
@@ -37,7 +33,7 @@ def handle_failure(session, job: Job, error_msg: str):
     if job.retry_count <= job.max_retries:
         job.status = "pending"
         session.commit()
-        r.rpush(JOB_QUEUE_KEY, str(job.id))
+        get_redis().rpush(PRIORITY_QUEUES["normal"], str(job.id))
         log.warning(
             f"[watchdog] Job {job.id} re-queued "
             f"(attempt {job.retry_count}/{job.max_retries}). Reason: {error_msg}"
@@ -47,8 +43,7 @@ def handle_failure(session, job: Job, error_msg: str):
         session.commit()
         log.error(f"[watchdog] Job {job.id} marked dead — exhausted retries. Reason: {error_msg}")
 
-
-# ----- Main Watchdog Loop -----
+# ----- Watchdog Loop -----
 
 def run_watchdog():
     log.info("[watchdog] Starting.")
@@ -75,10 +70,9 @@ def run_watchdog():
 
             for job in stuck_jobs:
                 heartbeat_key = f"{HEARTBEAT_PREFIX}{job.worker_id}"
-                worker_alive  = r.exists(heartbeat_key)
+                worker_alive  = get_redis().exists(heartbeat_key)
 
                 if worker_alive:
-                    # Worker is still beating — job is slow but not orphaned, leave it
                     log.info(f"[watchdog] Job {job.id} is slow but worker {job.worker_id} is alive — skipping.")
                     continue
 

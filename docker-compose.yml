@@ -1,5 +1,4 @@
 services:
-
   # ─── PostgreSQL ───────────────────────────────────────────────────────────────
   postgres:
     image: postgres:16-alpine
@@ -80,7 +79,7 @@ services:
       api:
         condition: service_healthy
     deploy:
-      replicas: ${WORKER_REPLICAS:-2}
+      replicas: ${WORKER_REPLICAS:-4}
 
   # ─── Watchdog ─────────────────────────────────────────────────────────────────
   watchdog:
@@ -109,12 +108,13 @@ services:
       dockerfile: Dockerfile.frontend
     container_name: neoqueue_frontend
     restart: unless-stopped
-    environment:
-      VITE_API_URL: ${VITE_API_URL:-http://localhost:5000}
+    # VITE_API_URL is intentionally empty: nginx proxies /api → api:8000
+    # so the React app uses relative URLs and works behind any hostname.
     ports:
       - "3000:80"
     depends_on:
-      - api
+      api:
+        condition: service_healthy
 
 volumes:
   postgres_data:

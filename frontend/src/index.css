@@ -1,68 +1,1437 @@
+@import url("https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap");
+
 :root {
-  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
-  line-height: 1.5;
-  font-weight: 400;
+  --bg: #0d1117;
+  --panel: #161b22;
+  --panel-2: #1c2128;
+  --line: rgba(255, 255, 255, 0.07);
+  --line-strong: rgba(255, 255, 255, 0.12);
+  --text: #e6edf3;
+  --text-muted: #7d8590;
+  --text-soft: #484f58;
+  --accent: #58a6ff;
+  --accent-2: #a78bfa;
+  --green: #3fb950;
+  --yellow: #d29922;
+  --blue: #58a6ff;
+  --orange: #db6d28;
+  --red: #f85149;
+  --shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+}
 
-  color-scheme: light dark;
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #242424;
+* {
+  box-sizing: border-box;
+}
 
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: "Manrope", "Segoe UI", sans-serif;
+  font-size: 14px;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-a {
-  font-weight: 500;
-  color: #646cff;
-  text-decoration: inherit;
-}
-a:hover {
-  color: #535bf2;
-}
-
-body {
-  margin: 0;
-  display: flex;
-  place-items: center;
-  min-width: 320px;
-  min-height: 100vh;
-}
-
-h1 {
-  font-size: 3.2em;
-  line-height: 1.1;
+button,
+input,
+textarea,
+summary {
+  font: inherit;
 }
 
 button {
-  border-radius: 8px;
-  border: 1px solid transparent;
-  padding: 0.6em 1.2em;
-  font-size: 1em;
-  font-weight: 500;
-  font-family: inherit;
-  background-color: #1a1a1a;
-  cursor: pointer;
-  transition: border-color 0.25s;
-}
-button:hover {
-  border-color: #646cff;
-}
-button:focus,
-button:focus-visible {
-  outline: 4px auto -webkit-focus-ring-color;
+  border: 0;
 }
 
-@media (prefers-color-scheme: light) {
-  :root {
-    color: #213547;
-    background-color: #ffffff;
+button:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+summary:focus-visible {
+  outline: 2px solid rgba(88, 166, 255, 0.6);
+  outline-offset: 2px;
+}
+
+#root {
+  width: 100%;
+}
+
+.mono {
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+}
+
+.dashboard-shell {
+  width: min(1440px, calc(100vw - 24px));
+  margin: 0 auto;
+  padding: 14px 0 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+/* ── Hero ── */
+
+.hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.45fr) minmax(240px, 0.9fr);
+  gap: 12px;
+  padding: 16px;
+}
+
+.eyebrow {
+  margin: 0 0 4px;
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  font-size: 0.65rem;
+  font-weight: 700;
+}
+
+.hero h1 {
+  margin: 0;
+  font-size: clamp(1.4rem, 3vw, 2rem);
+  line-height: 1.1;
+  letter-spacing: -0.03em;
+}
+
+.hero-description {
+  margin: 6px 0 0;
+  max-width: 62ch;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+
+.hero-metrics {
+  display: grid;
+  gap: 6px;
+  align-content: center;
+}
+
+.hero-metric {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 9px 12px;
+  border-radius: 6px;
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+}
+
+.hero-metric strong,
+.metric-card strong {
+  font-size: clamp(1.1rem, 2vw, 1.5rem);
+  letter-spacing: -0.02em;
+}
+
+.hero-metric-label,
+.metric-label,
+.job-meta-label,
+.stream-label,
+.section-meta,
+.section-subheader,
+.load-progress-text,
+.scenario-description,
+.hero-metric-subtext,
+.metric-note,
+.event-detail,
+.dead-created,
+.dead-retries,
+.dead-type,
+.dead-id,
+.submitted-id {
+  color: var(--text-muted);
+}
+
+.hero-metric-subtext,
+.metric-note,
+.scenario-description,
+.section-meta,
+.dead-created,
+.dead-retries,
+.event-detail {
+  font-size: 0.75rem;
+}
+
+.hero-indicator {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+}
+
+.hero-indicator.alive {
+  background: var(--green);
+}
+
+.hero-indicator.dead {
+  background: var(--text-soft);
+}
+
+/* ── Summary grid ── */
+
+.summary-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.metric-card {
+  min-height: 80px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.metric-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.metric-card strong {
+  margin-top: 4px;
+}
+
+/* ── Layout grid ── */
+
+.workspace-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(320px, 0.95fr);
+  gap: 10px;
+  align-items: start;
+}
+
+.analysis-column,
+.control-column {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+
+.control-stack {
+  display: grid;
+  gap: 10px;
+}
+
+@media (min-width: 1181px) {
+  .control-stack {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: start;
   }
-  a:hover {
-    color: #747bff;
+}
+
+.section-card {
+  padding: 12px;
+}
+
+/* ── Section headers ── */
+
+.section-header,
+.stream-card-header,
+.job-id-row,
+.dead-item-header,
+.event-row-top,
+.event-row-meta,
+.job-meta-grid,
+.job-meta-item,
+.dead-meta,
+.scenario-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.section-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.section-header {
+  margin-bottom: 10px;
+}
+
+.section-header h2 {
+  margin: 0;
+  font-size: 0.9rem;
+  letter-spacing: -0.02em;
+}
+
+/* ── Nav bar ── */
+
+.workspace-nav {
+  padding: 8px 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.workspace-nav-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.nav-chip {
+  padding: 4px 8px;
+  border-radius: 5px;
+  background: transparent;
+  border: 1px solid var(--line);
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 0.78rem;
+  font-weight: 500;
+}
+
+.nav-chip:hover {
+  color: var(--text);
+  border-color: var(--line-strong);
+  background: var(--panel-2);
+}
+
+
+.workspace-search {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1 1 240px;
+  justify-content: flex-end;
+}
+
+.workspace-search input {
+  min-width: min(300px, 100%);
+  flex: 1 1 200px;
+  padding: 6px 10px;
+  border-radius: 5px;
+  border: 1px solid var(--line);
+  background: var(--bg);
+  color: var(--text);
+  font-size: 0.82rem;
+}
+
+.scenario-actions,
+.modal-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* ── Empty state ── */
+
+.empty-state {
+  padding: 12px;
+  border-radius: 6px;
+  border: 1px dashed var(--line-strong);
+  background: rgba(255, 255, 255, 0.02);
+  color: var(--text-muted);
+  font-size: 0.82rem;
+}
+
+.empty-state p {
+  margin: 0 0 2px;
+  color: var(--text);
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+
+/* ── Streams ── */
+
+.stream-grid {
+  display: grid;
+  gap: 8px;
+}
+
+.stream-overflow-card {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
+  padding: 12px;
+  border-radius: 6px;
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  color: var(--text);
+  text-align: left;
+  min-height: 120px;
+}
+
+.stream-overflow-count {
+  font-size: 1.4rem;
+  font-weight: 800;
+  color: var(--accent);
+}
+
+.stream-card {
+  padding: 10px;
+}
+
+.stream-card-header h3,
+.job-id-text {
+  margin: 0;
+  font-size: 0.82rem;
+  overflow-wrap: anywhere;
+}
+
+.stream-label {
+  margin: 0 0 2px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 0.6rem;
+  font-weight: 700;
+}
+
+/* ── Interactive transitions ── */
+
+.icon-button,
+.link-btn,
+.preset-card,
+.scenario-card,
+.scenario-job-chip,
+.dead-item {
+  transition:
+    background 120ms ease,
+    border-color 120ms ease,
+    color 120ms ease;
+}
+
+.icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 10px;
+  border-radius: 5px;
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  color: var(--text);
+  cursor: pointer;
+  font-size: 0.78rem;
+}
+
+.icon-button:hover,
+.preset-card:hover,
+.scenario-card:hover {
+  border-color: var(--line-strong);
+  background: var(--panel-2);
+}
+
+/* ── Job details ── */
+
+.job-details {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.compact-stream-card .job-details {
+  gap: 6px;
+}
+
+.compact-stream-card .job-meta-grid {
+  gap: 5px;
+}
+
+.compact-stream-card .job-meta-item {
+  flex-basis: 110px;
+  padding: 6px 8px;
+}
+
+.compact-stream-card .job-meta-item strong {
+  font-size: 0.85rem;
+}
+
+.compact-stream-card .job-id-row,
+.compact-stream-card .event-row,
+.compact-stream-card .payload-details,
+.compact-stream-card .events-list {
+  border-radius: 6px;
+}
+
+.events-list.compact .event-row {
+  padding: 7px 9px;
+}
+
+.compact-more {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  padding: 2px 0 0;
+}
+
+.job-id-row {
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+}
+
+.job-title-group {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex-wrap: wrap;
+}
+
+/* ── Badges / chips ── */
+
+.status-chip,
+.badge,
+.status-tag,
+.connection-badge,
+.preset-dot,
+.scenario-outcome {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.status-chip,
+.status-tag {
+  padding: 2px 6px;
+}
+
+.badge {
+  padding: 2px 6px;
+}
+
+.connection-badge {
+  padding: 3px 7px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text-muted);
+  font-size: 0.62rem;
+}
+
+.connection-badge.connected {
+  color: var(--green);
+  border-color: rgba(63, 185, 80, 0.3);
+  background: rgba(63, 185, 80, 0.08);
+}
+
+.red {
+  background: rgba(248, 81, 73, 0.12);
+  color: var(--red);
+}
+
+.yellow {
+  background: rgba(210, 153, 34, 0.14);
+  color: var(--yellow);
+}
+
+.blue {
+  background: rgba(88, 166, 255, 0.12);
+  color: var(--blue);
+}
+
+.green {
+  background: rgba(63, 185, 80, 0.12);
+  color: var(--green);
+}
+
+.orange {
+  background: rgba(219, 109, 40, 0.14);
+  color: var(--orange);
+}
+
+/* ── Job meta ── */
+
+.job-meta-grid {
+  flex-wrap: wrap;
+}
+
+.job-meta-item {
+  flex: 1 1 130px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  justify-content: flex-start;
+}
+
+.job-meta-item strong {
+  margin-left: auto;
+  font-size: 0.85rem;
+}
+
+.job-meta-label {
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-weight: 600;
+}
+
+/* ── Payload ── */
+
+.payload-details {
+  border-radius: 6px;
+  border: 1px solid var(--line);
+  background: var(--panel-2);
+  overflow: hidden;
+}
+
+.payload-details summary {
+  list-style: none;
+  cursor: pointer;
+  padding: 8px 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-size: 0.62rem;
+}
+
+.payload-details summary::-webkit-details-marker {
+  display: none;
+}
+
+.payload-summary-note {
+  color: var(--text-muted);
+  font-weight: 500;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.payload-pre {
+  margin: 0;
+  padding: 0 10px 10px;
+  overflow: auto;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  line-height: 1.55;
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+}
+
+/* ── Events ── */
+
+.events-list {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.event-row {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+}
+
+.event-row.yellow {
+  border-color: rgba(210, 153, 34, 0.25);
+}
+
+.event-row.blue {
+  border-color: rgba(88, 166, 255, 0.2);
+}
+
+.event-row.green {
+  border-color: rgba(63, 185, 80, 0.2);
+}
+
+.event-row.orange {
+  border-color: rgba(219, 109, 40, 0.22);
+}
+
+.event-row.red {
+  border-color: rgba(248, 81, 73, 0.22);
+}
+
+.event-row.retrying {
+  border-color: rgba(88, 166, 255, 0.3);
+  background: rgba(88, 166, 255, 0.04);
+}
+
+.event-row-top {
+  justify-content: flex-start;
+}
+
+.event-row-meta {
+  justify-content: flex-start;
+  flex-wrap: wrap;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+}
+
+.status-tag {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.status-tag.retrying {
+  color: var(--accent);
+  background: rgba(88, 166, 255, 0.12);
+}
+
+.event-error,
+.form-error {
+  padding: 6px 8px;
+  border-radius: 5px;
+  background: rgba(248, 81, 73, 0.1);
+  color: #ffa8a5;
+  border: 1px solid rgba(248, 81, 73, 0.2);
+  word-break: break-word;
+  font-size: 0.78rem;
+}
+
+/* ── Presets / scenarios ── */
+
+.preset-grid,
+.scenario-grid {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.preset-grid {
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+}
+
+.preset-card,
+.scenario-card,
+.dead-item {
+  width: 100%;
+  cursor: pointer;
+  text-align: left;
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  color: var(--text);
+}
+
+.preset-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  padding: 7px 9px;
+  border-radius: 6px;
+}
+
+.preset-card strong,
+.scenario-card strong {
+  display: block;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.preset-card small {
+  display: block;
+  margin-top: 1px;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+}
+
+.preset-dot {
+  width: 7px;
+  height: 7px;
+  margin-top: 4px;
+  flex: 0 0 7px;
+  border-radius: 999px;
+}
+
+.preset-dot.complete {
+  background: var(--green);
+}
+
+.preset-dot.dead {
+  background: var(--red);
+}
+
+/* ── Form ── */
+
+.job-form {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.job-form label {
+  margin-top: 2px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 0.62rem;
+  font-weight: 700;
+}
+
+.job-form input,
+.job-form textarea {
+  width: 100%;
+  padding: 7px 9px;
+  border-radius: 5px;
+  border: 1px solid var(--line);
+  background: var(--bg);
+  color: var(--text);
+  resize: vertical;
+  font-size: 0.85rem;
+}
+
+.job-form textarea {
+  min-height: 88px;
+}
+
+.job-form input::placeholder,
+.job-form textarea::placeholder {
+  color: var(--text-soft);
+}
+
+.job-form input:focus,
+.job-form textarea:focus {
+  border-color: rgba(88, 166, 255, 0.45);
+  outline: none;
+}
+
+.job-form button[type="submit"] {
+  margin-top: 2px;
+  padding: 8px 12px;
+  border-radius: 5px;
+  background: var(--accent);
+  color: #0d1117;
+  font-weight: 700;
+  font-size: 0.85rem;
+  border: none;
+  cursor: pointer;
+}
+
+.job-form button[type="submit"]:hover:not(:disabled) {
+  background: #79b8ff;
+}
+
+.job-form button[type="submit"]:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.submitted-id {
+  margin: 6px 0 0;
+  word-break: break-word;
+  font-size: 0.78rem;
+}
+
+.link-btn {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--accent);
+  cursor: pointer;
+  font-size: 0.82rem;
+  text-decoration: underline;
+  text-decoration-color: rgba(88, 166, 255, 0.35);
+}
+
+.link-btn:hover {
+  text-decoration-color: var(--accent);
+}
+
+/* ── Load progress ── */
+
+.load-progress {
+  position: relative;
+  overflow: hidden;
+  margin-top: 8px;
+  min-height: 30px;
+  border-radius: 5px;
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.load-bar {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: rgba(88, 166, 255, 0.2);
+  transition: width 180ms ease;
+}
+
+.load-progress-text {
+  position: relative;
+  z-index: 1;
+  font-weight: 600;
+  font-size: 0.78rem;
+}
+
+/* ── Scenarios ── */
+
+.scenario-grid {
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+}
+
+.scenario-card {
+  padding: 8px 9px;
+  border-radius: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.scenario-outcome {
+  padding: 2px 6px;
+  margin-right: 6px;
+  border-radius: 4px;
+}
+
+.scenario-outcome.complete {
+  background: rgba(63, 185, 80, 0.1);
+  color: var(--green);
+}
+
+.scenario-outcome.dead {
+  background: rgba(248, 81, 73, 0.1);
+  color: var(--red);
+}
+
+.scenario-outcome.mixed {
+  background: rgba(210, 153, 34, 0.12);
+  color: var(--yellow);
+}
+
+.scenario-description {
+  font-size: 0.72rem;
+}
+
+.scenario-jobs {
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.section-subheader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-size: 0.62rem;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+.scenario-jobs-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.scenario-job-chip {
+  padding: 4px 7px;
+  border-radius: 4px;
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  color: var(--text-muted);
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 0.72rem;
+  cursor: pointer;
+}
+
+.scenario-job-chip.active {
+  border-color: rgba(88, 166, 255, 0.4);
+  color: var(--text);
+  background: rgba(88, 166, 255, 0.1);
+}
+
+/* ── Dead jobs ── */
+
+.dead-list {
+  display: grid;
+  gap: 6px;
+}
+
+.dead-item {
+  padding: 9px 10px;
+  border-radius: 6px;
+  border: 1px solid rgba(248, 81, 73, 0.15);
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.dead-item:hover {
+  border-color: rgba(248, 81, 73, 0.28);
+  background: rgba(248, 81, 73, 0.04);
+}
+
+.dead-item-header {
+  align-items: flex-start;
+}
+
+.dead-type {
+  display: block;
+  font-weight: 600;
+  font-size: 0.85rem;
+  margin-bottom: 2px;
+}
+
+.dead-id {
+  display: block;
+  color: var(--text-soft);
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 0.7rem;
+  overflow-wrap: anywhere;
+}
+
+.dead-meta {
+  justify-content: flex-start;
+  flex-wrap: wrap;
+}
+
+.dead-error {
+  padding: 6px 8px;
+  border-radius: 5px;
+  background: rgba(248, 81, 73, 0.08);
+  border: 1px solid rgba(248, 81, 73, 0.18);
+  color: #ffa8a5;
+  word-break: break-word;
+  font-size: 0.75rem;
+}
+
+/* ── Browse jobs ── */
+
+.job-browser-controls {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+
+.control-group {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.control-group label {
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  white-space: nowrap;
+}
+
+.control-group select {
+  padding: 4px 7px;
+  border-radius: 5px;
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  color: var(--text);
+  font-family: "Manrope", sans-serif;
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+
+.control-group select:hover {
+  border-color: var(--line-strong);
+}
+
+.browse-list {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.browse-item {
+  padding: 8px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--line);
+  background: var(--panel-2);
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.browse-item-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.browse-type {
+  display: block;
+  font-weight: 600;
+  font-size: 0.82rem;
+  margin-bottom: 1px;
+}
+
+.browse-id {
+  display: block;
+  color: var(--text-soft);
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 0.7rem;
+}
+
+.browse-meta {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex-wrap: wrap;
+  font-size: 0.75rem;
+}
+
+.status-badge {
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.status-badge.green {
+  background: rgba(63, 185, 80, 0.1);
+  color: var(--green);
+}
+
+.status-badge.blue {
+  background: rgba(88, 166, 255, 0.1);
+  color: var(--blue);
+}
+
+.status-badge.yellow {
+  background: rgba(210, 153, 34, 0.12);
+  color: var(--yellow);
+}
+
+.browse-retries {
+  color: var(--text-soft);
+  font-size: 0.7rem;
+}
+
+.browse-date {
+  color: var(--text-soft);
+  font-size: 0.7rem;
+}
+
+.browse-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 2px;
+}
+
+.browse-actions .link-btn {
+  font-size: 0.75rem;
+}
+
+.retry-btn {
+  color: var(--yellow);
+}
+
+/* ── Workers ── */
+
+.workers-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 6px;
+}
+
+.worker-card {
+  padding: 8px 10px;
+  border-radius: 6px;
+  border: 1px solid rgba(63, 185, 80, 0.18);
+  background: rgba(63, 185, 80, 0.04);
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.worker-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 6px;
+}
+
+.worker-id {
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 0.75rem;
+  word-break: break-word;
+}
+
+.worker-status {
+  font-size: 0.7rem;
+  color: var(--green);
+}
+
+.worker-status.dead {
+  color: var(--red);
+}
+
+.worker-job {
+  padding: 6px 8px;
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--line);
+}
+
+.worker-job-type {
+  font-weight: 600;
+  font-size: 0.75rem;
+  margin-bottom: 3px;
+}
+
+.worker-job-meta {
+  display: flex;
+  gap: 5px;
+  align-items: center;
+  flex-wrap: wrap;
+  font-size: 0.68rem;
+}
+
+.worker-idle {
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-style: italic;
+  padding: 4px;
+  text-align: center;
+}
+
+.empty {
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  font-style: italic;
+}
+
+/* ── Modal ── */
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+  padding: 10px;
+  display: grid;
+  place-items: center;
+}
+
+.modal-shell {
+  width: min(1040px, calc(100vw - 16px));
+  max-height: min(84vh, 840px);
+  overflow: auto;
+  padding: 12px;
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.modal-header .section-meta {
+  white-space: nowrap;
+}
+
+.modal-header h2 {
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+.modal-stream-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 6px;
+}
+
+.compact-stream-card {
+  padding: 8px;
+}
+
+.compact-stream-card .stream-card-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 6px;
+}
+
+.compact-stream-card .stream-card-actions .link-btn {
+  padding: 0;
+}
+
+.compact-stream-card .payload-details {
+  display: none;
+}
+
+.compact-stream-card .job-id-row {
+  padding: 6px 8px;
+}
+
+.compact-stream-card .job-meta-grid {
+  gap: 4px;
+}
+
+.compact-stream-card .events-list {
+  max-height: 110px;
+  overflow: auto;
+  gap: 4px;
+}
+
+.compact-stream-card .event-row {
+  padding: 6px 7px;
+  gap: 4px;
+}
+
+.compact-stream-card .event-row-meta {
+  font-size: 0.68rem;
+}
+
+.compact-stream-card .job-meta-item {
+  padding: 5px 7px;
+  flex-basis: 100px;
+}
+
+.compact-stream-card .job-meta-item strong {
+  font-size: 0.8rem;
+}
+
+.compact-stream-card .connection-badge,
+.compact-stream-card .status-chip,
+.compact-stream-card .status-tag,
+.compact-stream-card .badge {
+  font-size: 0.58rem;
+  padding: 2px 5px;
+}
+
+.compact-stream-card .stream-label {
+  font-size: 0.58rem;
+  margin-bottom: 1px;
+}
+
+.compact-stream-card .stream-card-header h3,
+.compact-stream-card .job-id-text {
+  font-size: 0.78rem;
+}
+
+.compact-stream-card .compact-more,
+.compact-stream-card .empty {
+  font-size: 0.68rem;
+}
+
+.compact-stream-card .event-error {
+  padding: 5px 7px;
+  border-radius: 5px;
+}
+
+
+/* ── Responsive ── */
+
+@media (max-width: 1180px) {
+  .hero,
+  .workspace-grid {
+    grid-template-columns: 1fr;
   }
-  button {
-    background-color: #f9f9f9;
+
+  .control-stack {
+    grid-template-columns: 1fr;
+  }
+
+  .modal-shell {
+    width: min(100vw - 14px, 1040px);
+  }
+
+  .workspace-search {
+    justify-content: stretch;
+  }
+}
+
+@media (max-width: 860px) {
+  .summary-grid,
+  .preset-grid,
+  .scenario-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .modal-stream-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .dashboard-shell {
+    width: min(100vw - 18px, 1440px);
+    padding-top: 10px;
+  }
+}
+
+@media (max-width: 620px) {
+  .summary-grid,
+  .preset-grid,
+  .scenario-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .hero,
+  .section-card {
+    padding: 10px;
+  }
+
+  .hero h1 {
+    font-size: 1.5rem;
+  }
+
+  .job-meta-item {
+    flex-basis: 100%;
+  }
+
+  .stream-card-header,
+  .job-id-row,
+  .section-header,
+  .dead-item-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .section-actions,
+  .modal-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .workspace-nav {
+    padding: 8px 10px;
+  }
+
+  .workspace-search {
+    width: 100%;
+    justify-content: stretch;
+  }
+
+  .workspace-search input {
+    min-width: 0;
+  }
+
+  .modal-backdrop {
+    padding: 6px;
+  }
+
+  .modal-shell {
+    max-height: 90vh;
+  }
+
+  .icon-button {
+    align-self: flex-start;
   }
 }

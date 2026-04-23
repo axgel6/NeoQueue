@@ -23,21 +23,21 @@ POST /api/jobs
    Watchdog           ← requeues stuck jobs, marks dead
       │
       ▼
-  Dashboard           ← React UI polling queue stats + SSE
+  Dashboard           ← React UI with live metrics, SSE streams, scenario runner
 ```
 
 ---
 
 ## Technical Stack
 
-| Component          | Technology              |
-| :----------------- | :---------------------- |
-| **Languages**      | Python, TypeScript, SQL |
-| **Frontend**       | React, Tailwind CSS     |
-| **Backend**        | FastAPI                 |
-| **Broker/Cache**   | Redis                   |
-| **Database**       | PostgreSQL              |
-| **Infrastructure** | Docker, Linux           |
+| Component          | Technology                      |
+| :----------------- | :------------------------------ |
+| **Languages**      | Python, TypeScript, SQL         |
+| **Frontend**       | React, Vite, Tailwind CSS       |
+| **Backend**        | FastAPI                         |
+| **Broker/Cache**   | Redis                           |
+| **Database**       | PostgreSQL                      |
+| **Infrastructure** | Docker, Linux                   |
 
 ---
 
@@ -46,8 +46,9 @@ POST /api/jobs
 - **Priority Queues:** Three Redis lists (`high`, `normal`, `low`) mapped from a 1–10 priority field. Workers drain high before normal before low.
 - **Idempotent Execution:** Workers check PostgreSQL before executing — already-completed jobs are skipped.
 - **Automatic Retry + DLQ:** Watchdog detects stuck jobs via `started_at` timeout. Retries up to `max_retries`, then marks `dead`.
+- **Manual Retry:** `POST /api/jobs/{id}/retry` re-enqueues any `failed` or `dead` job. Dead jobs get a full retry-count reset.
 - **Heartbeat Tracking:** Each worker writes a TTL key to Redis every 10s — lets the API report live worker count.
-- **Real-Time Dashboard:** React UI polls queue stats and opens SSE connections for per-job status streaming.
+- **Real-Time Dashboard:** React UI with live queue metrics, per-job SSE streams, job browser, live worker panel, DLQ inspection, and a built-in scenario runner.
 - **Horizontal Scalability:** Workers scale with `--scale worker=N` via Docker Compose.
 
 ---
@@ -68,7 +69,7 @@ cp .env.example .env
 docker-compose up -d
 ```
 
-This starts PostgreSQL, Redis, the FastAPI API (port 8000), two worker replicas, the watchdog, and the React dashboard (port 3000).
+This starts PostgreSQL, Redis, the FastAPI API (port 8000), four worker replicas, the watchdog, and the React dashboard (port 3000).
 
 ### Submit a job
 
@@ -97,13 +98,16 @@ Returns Redis queue depths and PostgreSQL job counts by status.
 
 ## API Reference
 
-| Method | Path                    | Description                             |
-| :----- | :---------------------- | :-------------------------------------- |
-| POST   | `/api/jobs`             | Enqueue a job — returns 202 with job ID |
-| GET    | `/api/jobs/{id}`        | Get current job state from PostgreSQL   |
-| GET    | `/api/queue/stats`      | Queue depths + job counts by status     |
-| GET    | `/api/jobs/{id}/stream` | SSE stream of live status updates       |
-| GET    | `/health`               | Health check                            |
+| Method | Path                        | Description                                         |
+| :----- | :-------------------------- | :-------------------------------------------------- |
+| POST   | `/api/jobs`                 | Enqueue a job — returns 202 with job ID             |
+| GET    | `/api/jobs`                 | List jobs filtered by status (up to 200)            |
+| GET    | `/api/jobs/{id}`            | Get current job state from PostgreSQL               |
+| POST   | `/api/jobs/{id}/retry`      | Re-enqueue a failed or dead job                     |
+| GET    | `/api/jobs/{id}/stream`     | SSE stream of live status updates                   |
+| GET    | `/api/queue/stats`          | Queue depths + job counts by status + workers alive |
+| GET    | `/api/workers`              | Live worker list with current job per worker        |
+| GET    | `/health`                   | Health check                                        |
 
 ### Job payload schema
 
@@ -115,6 +119,13 @@ Returns Redis queue depths and PostgreSQL job counts by status.
   "max_retries": 3
 }
 ```
+
+### List jobs query params
+
+| Param    | Default | Description                                           |
+| :------- | :------ | :---------------------------------------------------- |
+| `status` | —       | Filter by `pending`, `processing`, `completed`, `failed`, or `dead` |
+| `limit`  | `50`    | Max records to return (1–200)                         |
 
 ### Priority mapping
 
@@ -129,8 +140,54 @@ Returns Redis queue depths and PostgreSQL job counts by status.
 ```
 pending → processing → completed
                     ↘ failed → (retry) → pending
-                                       → dead
+                                       → dead → (manual retry) → pending
 ```
+
+---
+
+## Supported Job Types
+
+Workers have built-in handlers for the following job types. Any unknown type exhausts its retries and lands in the dead-letter queue.
+
+| Job type              | Simulated work | Notes                                              |
+| :-------------------- | :------------- | :------------------------------------------------- |
+| `send_email`          | 1s             | Logs `to` and `subject` fields from payload        |
+| `resize_image`        | 2s             | Logs `url`, `width`, `height`                      |
+| `export_4k_video`     | 12s            | Logs `input`, `codec`, `bitrate_mbps`              |
+| `train_ml_model`      | 8s             | Logs `model_name`, `dataset`, `epochs`             |
+| `index_search_corpus` | 5s             | Logs `corpus_id`, `document_count`                 |
+| `flaky_task`          | 4s (on success)| Fails `payload.fail_count` times, then completes   |
+
+---
+
+## Dashboard
+
+Open [http://localhost:3000](http://localhost:3000) after starting the stack. The dashboard auto-refreshes every 5 seconds and exposes:
+
+| Section          | Description                                                                 |
+| :--------------- | :-------------------------------------------------------------------------- |
+| **Hero metrics** | Workers alive, queue depth (high/normal/low), open live streams             |
+| **Summary grid** | Queue pressure, processing count, completion rate, dead-letter rate         |
+| **Active streams** | Per-job SSE traces; submit a job or click any row to open a stream        |
+| **Job browser**  | Filter by status and limit, watch or retry individual jobs                  |
+| **Live workers** | One card per alive worker showing current job or idle state                 |
+| **Dead letter queue** | Last 20 dead jobs with error messages; click a row to open its stream |
+| **Enqueue job**  | Manual form with presets for all supported job types                        |
+| **Scenario runner** | Pre-built load scenarios (8–30 jobs) with progress tracking             |
+
+### Load scenarios
+
+| Scenario         | Jobs | Expected outcome                      |
+| :--------------- | :--- | :------------------------------------ |
+| Happy Path       | 10   | All complete                          |
+| Flaky Once       | 8    | Each fails once, then completes       |
+| Flaky Twice      | 8    | Each fails twice, then completes      |
+| Flaky Intensive  | 16   | Flaky retries mixed with long jobs    |
+| Priority Storm   | 10   | All high-priority, all complete       |
+| DLQ Demo         | 12   | All go dead                           |
+| Mixed Reality    | 20   | ~half complete, ~half dead            |
+| Worker Stress    | 30   | All complete                          |
+| Intensive        | 15   | Long-running jobs, all complete       |
 
 ---
 
@@ -144,7 +201,7 @@ See [.env.example](.env.example) for all options.
 | `REDIS_URL`                 | —       | Redis connection string                       |
 | `WORKER_HEARTBEAT_INTERVAL` | `10`    | Seconds between heartbeat writes              |
 | `WORKER_JOB_TIMEOUT`        | `300`   | Seconds before watchdog considers a job stuck |
-| `WORKER_REPLICAS`           | `2`     | Default worker replica count                  |
+| `WORKER_REPLICAS`           | `4`     | Default worker replica count                  |
 | `WATCHDOG_POLL_INTERVAL`    | `30`    | Seconds between watchdog scans                |
 | `MAX_RETRIES`               | `3`     | Max retry attempts before marking job as dead |
 
@@ -228,7 +285,7 @@ Each worker runs a background thread that writes `heartbeat:<worker-id>` to Redi
 # Submit a long-running job (resize_image simulates 2s of work)
 curl -X POST http://localhost:8000/api/jobs \
   -H "Content-Type: application/json" \
-  -d '{"job_type": "resize_image", "payload": {"image_url": "http://example.com/img.jpg", "width": 800, "height": 600}, "priority": 2, "max_retries": 3}'
+  -d '{"job_type": "resize_image", "payload": {"url": "http://example.com/img.jpg", "width": 800, "height": 600}, "priority": 2, "max_retries": 3}'
 
 # Find which worker picked it up
 docker exec -it neoqueue_postgres psql -U neoqueue -d neoqueue \
@@ -272,7 +329,7 @@ Returns:
     "failed": 0,
     "dead": 0
   },
-  "workers_alive": 3
+  "workers_alive": 4
 }
 ```
 
@@ -300,13 +357,11 @@ The connection closes automatically when the job reaches a terminal state (`comp
 
 ## Roadmap
 
-| Phase                 | Description                                                                | Status  |
-| :-------------------- | :------------------------------------------------------------------------- | :------ |
-| 1 — Foundation        | PostgreSQL + Redis + FastAPI services, Job model, Docker Compose           | Done    |
-| 2 — Ingestion Layer   | `POST /api/jobs`, `GET /api/jobs/{id}`, Pydantic validation, Redis enqueue | Done    |
-| 3 — Execution Layer   | Worker BLPOP loop, idempotency check, status transitions, heartbeat        | Done    |
-| 4 — Fault Tolerance   | Watchdog process, stuck-job detection, auto-retry, dead-letter queue       | Done    |
-| 5 — Observability API | Queue stats endpoint, SSE live status streaming                            | Done    |
-| 6 — Dashboard         | React + TypeScript UI, live queue metrics, per-job SSE view                | Planned |
-| 7 — Testing           | Unit tests, integration tests, horizontal scaling validation               | Planned |
-| 8 — Polish            | Final README, single-command deploy, resume alignment                      | Planned |
+| Phase                 | Description                                                                | Status |
+| :-------------------- | :------------------------------------------------------------------------- | :----- |
+| 1 — Foundation        | PostgreSQL + Redis + FastAPI services, Job model, Docker Compose           | Done   |
+| 2 — Ingestion Layer   | `POST /api/jobs`, `GET /api/jobs/{id}`, Pydantic validation, Redis enqueue | Done   |
+| 3 — Execution Layer   | Worker BLPOP loop, idempotency check, status transitions, heartbeat        | Done   |
+| 4 — Fault Tolerance   | Watchdog process, stuck-job detection, auto-retry, dead-letter queue       | Done   |
+| 5 — Observability API | Queue stats endpoint, SSE live status streaming, list + retry endpoints    | Done   |
+| 6 — Dashboard         | React + Vite UI, live metrics, job browser, worker panel, scenario runner  | Done   |
